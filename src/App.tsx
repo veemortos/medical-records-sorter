@@ -58,7 +58,7 @@ const makeStyles = (dark) => ({
   fullscreenBtn: { position: 'absolute', top: '12px', right: '12px', padding: '8px', background: dark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', color: dark ? '#94a3b8' : '#334155', borderRadius: '8px', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, cursor: 'pointer', display: 'flex', alignItems: 'center' },
 });
 
-const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","christopher","zyks","allen","comanche","county","memorial","hospital","stokesberry","david","attending","history","physical","note","2025","2024","2023","2022","location","acute","milligram","orally","daily","times","per","day","notes","history","present"]);
+const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day"]);
 
 function extractWords(text) {
   const cleaned = text.toLowerCase()
@@ -67,6 +67,27 @@ function extractWords(text) {
     .replace(/\b\d{1,2}[-\/]\w{3,}[-\/]\d{2,4}\b/g, '')
     .replace(/\b\d{4,}\b/g, '');
   return Array.from(new Set(cleaned.match(/\b[a-z]{3,}\b/g)||[])).filter(w=>!STOP_WORDS.has(w));
+}
+
+// Build a global IDF map to downweight words that appear on many pages
+function buildIdfMap(allPages) {
+  const docFreq = {};
+  allPages.forEach(p => {
+    const words = extractWords(p.text);
+    words.forEach(w => { docFreq[w] = (docFreq[w]||0) + 1; });
+  });
+  return docFreq;
+}
+
+function getDistinctiveWords(text, docFreq, totalPages, topN = 40) {
+  // Return the N most distinctive words by inverse document frequency
+  const words = extractWords(text);
+  const scored = words.map(w => ({
+    w,
+    score: 1 / (docFreq[w] || 1) // rare words score higher
+  }));
+  scored.sort((a,b) => b.score - a.score);
+  return new Set(scored.slice(0, topN).map(x => x.w));
 }
 
 function extractWordsRaw(text) {
@@ -411,15 +432,22 @@ export default function App() {
     setProgress({percent:55, message:'Structuring records for cross-analysis...'});
     await yieldToBrowser();
 
-    // Build page-level word sets for whole-page comparison
+    // Build IDF map across all pages to identify distinctive words
+    const allPagesForIdf = [
+      ...parsedDocsA.flatMap(d=>d.pages),
+      ...parsedDocsB.flatMap(d=>d.pages)
+    ];
+    const docFreq = buildIdfMap(allPagesForIdf);
+    const totalPages = allPagesForIdf.length;
+
+    // Build page-level word sets using distinctive words only
     const makePageSets = (docs) => {
       const pages = [];
       docs.forEach(doc => {
         doc.pages.forEach(p => {
-          const words = extractWords(p.text);
-          const fingerprint = fingerprintPage(p.text);
-          if (words.length > 5) {
-            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: new Set(words), fingerprint });
+          const distinctWords = getDistinctiveWords(p.text, docFreq, totalPages, 40);
+          if (distinctWords.size > 3) {
+            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: distinctWords });
           }
         });
       });
@@ -451,27 +479,24 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.35; // Strict enough to avoid false positives
-    const CHUNK_THRESHOLD = 0.35;
+    const PAGE_THRESHOLD = 0.25;
+    const CHUNK_THRESHOLD = 0.30;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
-    // PASS 1: Whole-page comparison — catches scanned/formatted duplicates
+    // PASS 1: Whole-page comparison using distinctive words
     for (let i = 0; i < pageSetsA.length; i++) {
       const pageA = pageSetsA[i];
       for (let j = 0; j < pageSetsB.length; j++) {
         const pageB = pageSetsB[j];
-        // Check both full word set and fingerprint similarity
         const score = calculateJaccard(pageA.wordSet, pageB.wordSet);
-        const fpScore = calculateJaccard(pageA.fingerprint, pageB.fingerprint);
-        const bestScore = Math.max(score, fpScore);
-        if (bestScore >= PAGE_THRESHOLD) {
+        if (score >= PAGE_THRESHOLD) {
           const pairKey = `${pageA.docId}-${pageA.pageNum}|${pageB.docId}-${pageB.pageNum}`;
           if (!seenPagePairs.has(pairKey)) {
             seenPagePairs.add(pairKey);
             const snippetA = pageA.text.slice(0, 300);
             const snippetB = pageB.text.slice(0, 300);
-            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score: bestScore });
+            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score });
           }
         }
       }
