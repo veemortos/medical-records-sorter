@@ -117,25 +117,81 @@ async function extractTextFromPdf(pdf, fileName, onProgress) {
   return pages;
 }
 
+async function renderPageToHash(page, pageNum) {
+  // Render the entire page to a small canvas and hash pixel data
+  // This works on scanned pages, image-heavy pages, and mixed content
+  try {
+    const THUMB_SIZE = 64; // 64x64 thumbnail for fast comparison
+    const viewport = page.getViewport({ scale: 1.0 });
+    const scale = Math.min(THUMB_SIZE / viewport.width, THUMB_SIZE / viewport.height);
+    const scaledViewport = page.getViewport({ scale });
+
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(scaledViewport.width);
+    canvas.height = Math.round(scaledViewport.height);
+    const ctx = canvas.getContext('2d');
+
+    await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
+
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const data = imageData.data;
+
+    // Convert to grayscale array for perceptual hashing
+    const gray = [];
+    for (let i = 0; i < data.length; i += 4) {
+      gray.push(Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]));
+    }
+
+    // Average hash: compare each pixel to mean
+    const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
+    let hash = BigInt(0);
+    for (let i = 0; i < Math.min(gray.length, 64); i++) {
+      if (gray[i] >= mean) hash |= (BigInt(1) << BigInt(i));
+    }
+
+    // Also compute a simple polynomial hash for secondary comparison
+    let polyHash = 0;
+    const step = Math.max(1, Math.floor(gray.length / 256));
+    for (let i = 0; i < gray.length; i += step) {
+      polyHash = ((polyHash << 5) - polyHash) + gray[i];
+      polyHash |= 0;
+    }
+
+    return { pageNum, width: canvas.width, height: canvas.height, aHash: hash.toString(), polyHash };
+  } catch (err) {
+    return null;
+  }
+}
+
+function hammingDistance(hashA, hashB) {
+  // Count differing bits between two hash strings (both are 64-bit represented as BigInt strings)
+  try {
+    let xor = BigInt(hashA) ^ BigInt(hashB);
+    let dist = 0;
+    while (xor > 0n) { dist += Number(xor & 1n); xor >>= 1n; }
+    return dist;
+  } catch { return 64; }
+}
+
 async function extractImageHashesFromPage(page, pageNum) {
+  // Keep old embedded-image extraction as fallback
   const images = [];
   try {
     const ops = await page.getOperatorList();
     let imgCount = 0;
     for (let i = 0; i < ops.fnArray.length; i++) {
-      if (imgCount >= 50) break;
+      if (imgCount >= 20) break;
       if (ops.fnArray[i] === window.pdfjsLib.OPS.paintImageXObject || ops.fnArray[i] === window.pdfjsLib.OPS.paintJpegXObject) {
         const objId = ops.argsArray[i][0];
         try {
           const img = await new Promise((resolve) => {
             let isDone = false;
-            const timer = setTimeout(() => { if (!isDone) { isDone = true; resolve(null); } }, 1000);
+            const timer = setTimeout(() => { if (!isDone) { isDone = true; resolve(null); } }, 800);
             try { page.objs.get(objId, (data) => { if (!isDone) { isDone = true; clearTimeout(timer); resolve(data); } }); }
             catch(e) { if (!isDone) { isDone = true; clearTimeout(timer); resolve(null); } }
           });
           if (img) {
             imgCount++;
-            let hash = 0;
             let width = img.width||(img.bitmap&&img.bitmap.width)||0;
             let height = img.height||(img.bitmap&&img.bitmap.height)||0;
             if (width < 50 || height < 50) continue;
@@ -148,6 +204,7 @@ async function extractImageHashesFromPage(page, pageNum) {
               data = ctx.getImageData(0,0,canvas.width,canvas.height).data;
             }
             if (data && data.length > 0) {
+              let hash = 0;
               const step = Math.max(1,Math.floor(data.length/500));
               for (let j = 0; j < data.length; j += step) { hash=((hash<<5)-hash)+data[j]; hash|=0; }
               images.push({ pageNum, width, height, dataHash: hash });
@@ -325,18 +382,21 @@ export default function App() {
           });
           totalPagesProcessed += pages.length;
 
-          // Image extraction (sequential, fault-tolerant)
+          // Image extraction + full-page visual rendering
           const imageHashes = [];
+          const pageVisualHashes = [];
           for (let i=1; i<=pdf.numPages; i++) {
             try {
               const page = await pdf.getPage(i);
               imageHashes.push(...(await extractImageHashesFromPage(page, i)));
+              const visualHash = await renderPageToHash(page, i);
+              if (visualHash) pageVisualHashes.push(visualHash);
               page.cleanup();
             } catch(e) {}
-            if (i % 20 === 0) await yieldToBrowser();
+            if (i % 10 === 0) await yieldToBrowser();
           }
 
-          parsedDocs.push({id:fileItem.id, name:fileItem.name, pages, imageHashes, pdfDoc:pdf});
+          parsedDocs.push({id:fileItem.id, name:fileItem.name, pages, imageHashes, pageVisualHashes, pdfDoc:pdf});
         } catch(err) {
           console.error(err);
           alert(`Could not read ${fileItem.name}. Skipping.`);
@@ -473,6 +533,29 @@ export default function App() {
     setProgress({percent:90, message:'Detecting visual duplicates...'});
     await yieldToBrowser();
 
+    // Perceptual page hash comparison — works on scanned/image-heavy pages
+    const visualHashesA=[]; parsedDocsA.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesA.push({...h,docId:doc.id,docName:doc.name})));
+    const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
+
+    const HAMMING_THRESHOLD = 8; // Allow up to 8 differing bits out of 64
+    for (let i=0; i<visualHashesA.length; i++) {
+      const vA = visualHashesA[i];
+      for (let j=0; j<visualHashesB.length; j++) {
+        const vB = visualHashesB[j];
+        const dist = hammingDistance(vA.aHash, vB.aHash);
+        if (dist <= HAMMING_THRESHOLD) {
+          const pairKey = `${vA.docId}-${vA.pageNum}|${vB.docId}-${vB.pageNum}`;
+          if (!seenPagePairs.has(pairKey)) {
+            seenPagePairs.add(pairKey);
+            const score = 1 - (dist / 64);
+            matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:vB.docId, docNameB:vB.docName, pageB:vB.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
+          }
+        }
+      }
+      if (i % 20 === 0) await yieldToBrowser();
+    }
+
+    // Embedded image object comparison (fallback for non-scanned PDFs)
     const allImagesA=[]; parsedDocsA.forEach(doc=>doc.imageHashes.forEach(img=>allImagesA.push({...img,docId:doc.id,docName:doc.name})));
     const allImagesB=[]; parsedDocsB.forEach(doc=>doc.imageHashes.forEach(img=>allImagesB.push({...img,docId:doc.id,docName:doc.name})));
     const getIgnoreHashes = (images) => {
@@ -488,7 +571,11 @@ export default function App() {
       for (let j=0; j<allImagesB.length; j++) {
         const imgB=allImagesB[j];
         if (imgA.dataHash===imgB.dataHash&&imgA.width===imgB.width&&imgA.height===imgB.height) {
-          matches.push({type:'image',docA:imgA.docId,docNameA:imgA.docName,pageA:imgA.pageNum,docB:imgB.docId,docNameB:imgB.docName,pageB:imgB.pageNum,score:1.0,details:`${imgA.width}x${imgA.height}px`});
+          const pairKey = `${imgA.docId}-${imgA.pageNum}|${imgB.docId}-${imgB.pageNum}`;
+          if (!seenPagePairs.has(pairKey)) {
+            seenPagePairs.add(pairKey);
+            matches.push({type:'image',docA:imgA.docId,docNameA:imgA.docName,pageA:imgA.pageNum,docB:imgB.docId,docNameB:imgB.docName,pageB:imgB.pageNum,score:1.0,details:`${imgA.width}x${imgA.height}px`});
+          }
           break;
         }
       }
