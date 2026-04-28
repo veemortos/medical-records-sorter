@@ -512,8 +512,8 @@ export default function App() {
   const renderIdleState = () => (
     <div>
       <div style={S.grid2}>
-        <UploadZone label="Group A (Primary)" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
-        <UploadZone label="Group B (Target)" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
+        <UploadZone label="Received Medical Records" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
+        <UploadZone label="ERE Medical Records" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
