@@ -7,7 +7,7 @@ const makeStyles = (dark) => ({
   header: { marginBottom: '40px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '16px' },
   h1: { fontSize: '28px', fontWeight: 800, color: dark ? '#f1f5f9' : '#0f172a', display: 'flex', alignItems: 'center', gap: '12px', margin: 0 },
   subtitle: { marginTop: '8px', color: dark ? '#94a3b8' : '#64748b', fontWeight: 500, fontSize: '15px' },
-  headerRight: { display: 'flex', alignItems: 'center', gap: '12px' },
+  headerRight: { display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' },
   tipBox: { background: dark ? '#1e3a5f' : '#eff6ff', color: dark ? '#93c5fd' : '#1e40af', fontSize: '13px', padding: '12px 20px', borderRadius: '12px', border: `1px solid ${dark ? '#2563eb' : '#bfdbfe'}`, display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700 },
   darkBtn: { background: dark ? '#1e293b' : '#f1f5f9', color: dark ? '#94a3b8' : '#475569', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, borderRadius: '10px', padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'Verdana, sans-serif', fontSize: '13px', fontWeight: 700 },
   grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '32px', marginBottom: '32px' },
@@ -21,7 +21,7 @@ const makeStyles = (dark) => ({
   fileItem: { background: dark ? '#1e293b' : '#fff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, padding: '10px 12px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
   fileIcon: { background: dark ? '#1e3a5f' : '#dbeafe', color: dark ? '#60a5fa' : '#1d4ed8', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10px', flexShrink: 0 },
   fileName: { fontWeight: 700, color: dark ? '#e2e8f0' : '#0f172a', fontSize: '13px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '180px' },
-  fileSize: { fontSize: '11px', color: dark ? '#64748b' : '#64748b', fontWeight: 500 },
+  fileSize: { fontSize: '11px', color: '#64748b', fontWeight: 500 },
   trashBtn: { background: 'transparent', border: 'none', cursor: 'pointer', color: dark ? '#475569' : '#94a3b8', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center' },
   runBtn: (disabled) => ({ background: disabled ? (dark ? '#334155' : '#94a3b8') : (dark ? '#3b82f6' : '#0f172a'), color: '#fff', fontWeight: 700, padding: '16px 48px', borderRadius: '999px', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '17px', fontFamily: 'Verdana, sans-serif', boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }),
   center: { display: 'flex', justifyContent: 'center' },
@@ -31,11 +31,11 @@ const makeStyles = (dark) => ({
   summaryCard: { background: dark ? '#1e293b' : '#fff', borderRadius: '20px', boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.07)', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, padding: '32px', marginBottom: '32px', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '24px' },
   summaryTitle: { fontSize: '28px', fontWeight: 700, color: dark ? '#f1f5f9' : '#0f172a', marginBottom: '8px' },
   statBox: { textAlign: 'center', padding: '16px', background: dark ? '#0f172a' : '#f8fafc', borderRadius: '14px', border: `1px solid ${dark ? '#334155' : '#f1f5f9'}`, minWidth: '120px' },
-  statLabel: { fontSize: '12px', color: dark ? '#64748b' : '#64748b', fontWeight: 700, marginBottom: '4px' },
+  statLabel: { fontSize: '12px', color: '#64748b', fontWeight: 700, marginBottom: '4px' },
   exportBtn: (bg) => ({ background: bg, color: '#fff', fontWeight: 700, padding: '10px 20px', borderRadius: '12px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontFamily: 'Verdana, sans-serif' }),
   sectionTitle: { fontSize: '22px', fontWeight: 700, color: dark ? '#f1f5f9' : '#0f172a', display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' },
   tabBar: { display: 'flex', gap: '8px', borderBottom: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, marginBottom: '24px', overflowX: 'auto' },
-  tab: (active, color) => ({ padding: '12px 24px', fontWeight: 700, border: 'none', borderBottom: active ? `2px solid ${color}` : '2px solid transparent', background: active ? (color === '#2563eb' ? (dark ? '#1e3a5f' : '#eff6ff') : (dark ? '#3b0a1a' : '#fff1f2')) : 'transparent', color: active ? color : (dark ? '#64748b' : '#64748b'), cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'Verdana, sans-serif', fontSize: '14px', whiteSpace: 'nowrap', borderRadius: active ? '8px 8px 0 0' : 0 }),
+  tab: (active, color) => ({ padding: '12px 24px', fontWeight: 700, border: 'none', borderBottom: active ? `2px solid ${color}` : '2px solid transparent', background: active ? (color === '#2563eb' ? (dark ? '#1e3a5f' : '#eff6ff') : (dark ? '#3b0a1a' : '#fff1f2')) : 'transparent', color: active ? color : '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'Verdana, sans-serif', fontSize: '14px', whiteSpace: 'nowrap', borderRadius: active ? '8px 8px 0 0' : 0 }),
   matchCard: { background: dark ? '#1e293b' : '#fff', borderRadius: '20px', boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.4)' : '0 1px 3px rgba(0,0,0,0.07)', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, overflow: 'hidden', marginBottom: '24px' },
   matchHeader: { background: dark ? '#0f172a' : '#f8fafc', padding: '16px 24px', borderBottom: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   matchTitle: { fontWeight: 700, color: dark ? '#f1f5f9' : '#0f172a', fontSize: '17px' },
@@ -62,6 +62,30 @@ const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","o
 function extractWords(text) { return Array.from(new Set(text.toLowerCase().match(/\b[a-z]{3,}\b/g)||[])).filter(w=>!STOP_WORDS.has(w)); }
 function calculateJaccard(setA,setB) { let i=0; for(let e of setA){if(setB.has(e))i++;} let u=setA.size+setB.size-i; return u===0?0:i/u; }
 const yieldToBrowser = async()=>new Promise(r=>setTimeout(r,0));
+
+// Faster: process pages in parallel batches of 8
+async function extractTextFromPdf(pdf, fileName, onProgress) {
+  const BATCH = 8;
+  const pages = [];
+  for (let i = 1; i <= pdf.numPages; i += BATCH) {
+    const batch = [];
+    for (let j = i; j < Math.min(i + BATCH, pdf.numPages + 1); j++) {
+      batch.push(
+        pdf.getPage(j).then(async page => {
+          const textContent = await page.getTextContent();
+          const text = textContent.items.map(item => item.str).join(' ');
+          page.cleanup();
+          return { pageNum: j, text };
+        }).catch(() => ({ pageNum: j, text: '' }))
+      );
+    }
+    const results = await Promise.all(batch);
+    pages.push(...results);
+    onProgress(Math.min(i + BATCH - 1, pdf.numPages), pdf.numPages);
+    await yieldToBrowser();
+  }
+  return pages;
+}
 
 async function extractImageHashesFromPage(page, pageNum) {
   const images = [];
@@ -102,7 +126,7 @@ async function extractImageHashesFromPage(page, pageNum) {
         } catch(e) {}
       }
     }
-  } catch(err) { console.warn(err); }
+  } catch(err) {}
   return images;
 }
 
@@ -158,7 +182,7 @@ const PdfModal = ({ pdfDoc, pageNum, onClose, S }) => {
       <div style={S.modalBox} onClick={e => e.stopPropagation()}>
         <div style={S.modalHeader}>
           <span style={{ fontWeight: 600 }}>Page {pageNum} Preview</span>
-          <button onClick={onClose} style={{ ...S.trashBtn }}><X size={20} /></button>
+          <button onClick={onClose} style={S.trashBtn}><X size={20} /></button>
         </div>
         <div style={S.modalBody}>
           {isRendering && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 500 }}>Rendering...</div>}
@@ -253,88 +277,138 @@ export default function App() {
 
     const parseFiles = async (fileList, startPct, endPct, label) => {
       const parsedDocs = [];
-      for (let docIdx=0;docIdx<fileList.length;docIdx++) {
+      for (let docIdx=0; docIdx<fileList.length; docIdx++) {
         const fileItem = fileList[docIdx];
         try {
-          setProgress({percent:startPct,message:`Opening ${fileItem.name} (${label})...`});
+          setProgress({percent:startPct, message:`Opening ${fileItem.name} (${label})...`});
           const arrayBuffer = await fileItem.file.arrayBuffer();
           const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
-          const pages=[]; const imageHashes=[];
-          for (let i=1;i<=pdf.numPages;i++) {
+
+          // Fast parallel text extraction
+          const pages = await extractTextFromPdf(pdf, fileItem.name, (done, total) => {
+            const basePct = startPct + ((docIdx/fileList.length)*(endPct-startPct));
+            const withinDoc = (done/total)*((endPct-startPct)/fileList.length);
+            setProgress({
+              percent: Math.floor(basePct + withinDoc),
+              message: `Reading ${label} — ${fileItem.name} (${done}/${total} pages)...`
+            });
+          });
+          totalPagesProcessed += pages.length;
+
+          // Image extraction (sequential, fault-tolerant)
+          const imageHashes = [];
+          for (let i=1; i<=pdf.numPages; i++) {
             try {
               const page = await pdf.getPage(i);
-              const textContent = await page.getTextContent();
-              pages.push({pageNum:i,text:textContent.items.map(item=>item.str).join(' ')});
-              imageHashes.push(...(await extractImageHashesFromPage(page,i)));
+              imageHashes.push(...(await extractImageHashesFromPage(page, i)));
               page.cleanup();
-            } catch(pageErr) { console.warn(`Skipping page ${i}`,pageErr); }
-            totalPagesProcessed++;
-            if (i%5===0||i===pdf.numPages) {
-              const basePct = startPct+((docIdx/fileList.length)*(endPct-startPct));
-              const progressWithinDoc = (i/pdf.numPages)*((endPct-startPct)/fileList.length);
-              setProgress({percent:Math.floor(basePct+progressWithinDoc),message:`Reading ${label} - ${fileItem.name} (Page ${i} of ${pdf.numPages})...`});
-              await yieldToBrowser();
-            }
+            } catch(e) {}
+            if (i % 20 === 0) await yieldToBrowser();
           }
-          parsedDocs.push({id:fileItem.id,name:fileItem.name,pages,imageHashes,pdfDoc:pdf});
-        } catch(err) { console.error(err); alert(`Could not read ${fileItem.name}. Skipping.`); }
+
+          parsedDocs.push({id:fileItem.id, name:fileItem.name, pages, imageHashes, pdfDoc:pdf});
+        } catch(err) {
+          console.error(err);
+          alert(`Could not read ${fileItem.name}. Skipping.`);
+        }
       }
       return parsedDocs;
     };
 
-    const parsedDocsA = await parseFiles(filesA,0,25,"Group A");
-    const parsedDocsB = await parseFiles(filesB,25,50,"Group B");
+    const parsedDocsA = await parseFiles(filesA, 0, 25, "Group A");
+    const parsedDocsB = await parseFiles(filesB, 25, 50, "Group B");
     if (!parsedDocsA.length||!parsedDocsB.length) { setAppState('IDLE'); return; }
 
-    setProgress({percent:55,message:'Structuring records for cross-analysis...'});
+    setProgress({percent:55, message:'Structuring records for cross-analysis...'});
     await yieldToBrowser();
 
-    const makeChunks = (docs) => { const chunks=[]; docs.forEach(doc=>{ doc.pages.forEach(p=>{ const words=p.text.split(/\s+/); for(let i=0;i<words.length;i+=100){ const t=words.slice(i,i+100).join(' '); if(t.length>50) chunks.push({docId:doc.id,docName:doc.name,pageNum:p.pageNum,text:t}); } }); }); return chunks; };
+    const makeChunks = (docs) => {
+      const chunks = [];
+      docs.forEach(doc => {
+        doc.pages.forEach(p => {
+          const words = p.text.split(/\s+/);
+          for (let i=0; i<words.length; i+=100) {
+            const t = words.slice(i, i+100).join(' ');
+            if (t.length > 80) chunks.push({docId:doc.id, docName:doc.name, pageNum:p.pageNum, text:t});
+          }
+        });
+      });
+      return chunks;
+    };
     const allChunksA = makeChunks(parsedDocsA);
     const allChunksB = makeChunks(parsedDocsB);
 
-    setProgress({percent:60,message:'Building search index (Group B)...'});
+    setProgress({percent:60, message:'Building search index (Group B)...'});
     await yieldToBrowser();
 
     const globalIndexB = new Map();
-    allChunksB.forEach((chunk,idx)=>{ const words=extractWords(chunk.text); chunk.wordSet=new Set(words); words.forEach(w=>{ if(!globalIndexB.has(w)) globalIndexB.set(w,[]); globalIndexB.get(w).push(idx); }); });
-    allChunksA.forEach(chunk=>{ chunk.wordSet=new Set(extractWords(chunk.text)); });
+    allChunksB.forEach((chunk,idx) => {
+      const words = extractWords(chunk.text);
+      chunk.wordSet = new Set(words);
+      words.forEach(w => {
+        if (!globalIndexB.has(w)) globalIndexB.set(w, []);
+        globalIndexB.get(w).push(idx);
+      });
+    });
+    allChunksA.forEach(chunk => { chunk.wordSet = new Set(extractWords(chunk.text)); });
 
-    const matches=[]; const THRESHOLD=0.45; let lastYield=Date.now();
-    for (let i=0;i<allChunksA.length;i++) {
-      const chunkA=allChunksA[i]; const candidateScores=new Map();
-      chunkA.wordSet.forEach(w=>{ const occ=globalIndexB.get(w); if(occ) occ.forEach(idxB=>{ candidateScores.set(idxB,(candidateScores.get(idxB)||0)+1); }); });
-      const chunkMatches=[];
-      for (let [idxB,sharedCount] of candidateScores.entries()) {
-        if (sharedCount>=3) { const score=calculateJaccard(chunkA.wordSet,allChunksB[idxB].wordSet); if(score>=THRESHOLD) chunkMatches.push({idxB,score}); }
+    const matches = []; const THRESHOLD = 0.45; let lastYield = Date.now();
+    for (let i=0; i<allChunksA.length; i++) {
+      const chunkA = allChunksA[i];
+      const candidateScores = new Map();
+      chunkA.wordSet.forEach(w => {
+        const occ = globalIndexB.get(w);
+        if (occ) occ.forEach(idxB => { candidateScores.set(idxB,(candidateScores.get(idxB)||0)+1); });
+      });
+      const chunkMatches = [];
+      for (let [idxB, sharedCount] of candidateScores.entries()) {
+        if (sharedCount >= 3) {
+          const score = calculateJaccard(chunkA.wordSet, allChunksB[idxB].wordSet);
+          if (score >= THRESHOLD) chunkMatches.push({idxB, score});
+        }
       }
-      if (chunkMatches.length>0) {
-        chunkMatches.sort((a,b)=>b.score-a.score);
-        const best=chunkMatches[0]; const chunkB=allChunksB[best.idxB];
-        matches.push({type:'text',docA:chunkA.docId,docNameA:chunkA.docName,pageA:chunkA.pageNum,chunkA:chunkA.text,docB:chunkB.docId,docNameB:chunkB.docName,pageB:chunkB.pageNum,chunkB:chunkB.text,score:best.score});
+      if (chunkMatches.length > 0) {
+        chunkMatches.sort((a,b) => b.score-a.score);
+        const best = chunkMatches[0];
+        const chunkB = allChunksB[best.idxB];
+        matches.push({type:'text', docA:chunkA.docId, docNameA:chunkA.docName, pageA:chunkA.pageNum, chunkA:chunkA.text, docB:chunkB.docId, docNameB:chunkB.docName, pageB:chunkB.pageNum, chunkB:chunkB.text, score:best.score});
       }
-      if (Date.now()-lastYield>50) { setProgress({percent:65+Math.floor((i/allChunksA.length)*20),message:`Cross-referencing text... (${i} / ${allChunksA.length} sections)`}); await yieldToBrowser(); lastYield=Date.now(); }
+      // Yield every 100ms instead of every 50ms
+      if (Date.now()-lastYield > 100) {
+        setProgress({percent:65+Math.floor((i/allChunksA.length)*20), message:`Cross-referencing text... (${i} / ${allChunksA.length} sections)`});
+        await yieldToBrowser();
+        lastYield = Date.now();
+      }
     }
 
-    setProgress({percent:90,message:'Detecting visual duplicates...'});
+    setProgress({percent:90, message:'Detecting visual duplicates...'});
     await yieldToBrowser();
 
     const allImagesA=[]; parsedDocsA.forEach(doc=>doc.imageHashes.forEach(img=>allImagesA.push({...img,docId:doc.id,docName:doc.name})));
     const allImagesB=[]; parsedDocsB.forEach(doc=>doc.imageHashes.forEach(img=>allImagesB.push({...img,docId:doc.id,docName:doc.name})));
-    const getIgnoreHashes = (images) => { const counts={}; images.forEach(img=>{counts[img.dataHash]=(counts[img.dataHash]||0)+1;}); const limit=Math.max(5,totalPagesProcessed/10); return new Set(Object.keys(counts).filter(k=>counts[k]>=limit).map(Number)); };
+    const getIgnoreHashes = (images) => {
+      const counts={};
+      images.forEach(img=>{counts[img.dataHash]=(counts[img.dataHash]||0)+1;});
+      const limit=Math.max(5,totalPagesProcessed/10);
+      return new Set(Object.keys(counts).filter(k=>counts[k]>=limit).map(Number));
+    };
     const ignoreA=getIgnoreHashes(allImagesA); const ignoreB=getIgnoreHashes(allImagesB);
-    for (let i=0;i<allImagesA.length;i++) {
-      const imgA=allImagesA[i]; if(ignoreA.has(imgA.dataHash)||ignoreB.has(imgA.dataHash)) continue;
-      for (let j=0;j<allImagesB.length;j++) {
+    for (let i=0; i<allImagesA.length; i++) {
+      const imgA=allImagesA[i];
+      if (ignoreA.has(imgA.dataHash)||ignoreB.has(imgA.dataHash)) continue;
+      for (let j=0; j<allImagesB.length; j++) {
         const imgB=allImagesB[j];
-        if(imgA.dataHash===imgB.dataHash&&imgA.width===imgB.width&&imgA.height===imgB.height) { matches.push({type:'image',docA:imgA.docId,docNameA:imgA.docName,pageA:imgA.pageNum,docB:imgB.docId,docNameB:imgB.docName,pageB:imgB.pageNum,score:1.0,details:`${imgA.width}x${imgA.height}px`}); break; }
+        if (imgA.dataHash===imgB.dataHash&&imgA.width===imgB.width&&imgA.height===imgB.height) {
+          matches.push({type:'image',docA:imgA.docId,docNameA:imgA.docName,pageA:imgA.pageNum,docB:imgB.docId,docNameB:imgB.docName,pageB:imgB.pageNum,score:1.0,details:`${imgA.width}x${imgA.height}px`});
+          break;
+        }
       }
     }
 
-    setProgress({percent:98,message:'Finalizing report...'});
+    setProgress({percent:98, message:'Finalizing report...'});
     await yieldToBrowser();
-    matches.sort((a,b)=>b.score-a.score);
-    setResults({parsedDocs:[...parsedDocsA,...parsedDocsB],totalMatches:matches.length,totalPages:totalPagesProcessed,topMatches:matches});
+    matches.sort((a,b) => b.score-a.score);
+    setResults({parsedDocs:[...parsedDocsA,...parsedDocsB], totalMatches:matches.length, totalPages:totalPagesProcessed, topMatches:matches});
     setActiveResultTab('text'); setVisibleCount(100); setAppState('RESULTS');
   };
 
@@ -385,7 +459,7 @@ export default function App() {
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
-          <Play fill="currentColor" size={20} />Run AI Comparison
+          <Play fill="currentColor" size={20} />Run Duplicate Checker
         </button>
       </div>
     </div>
@@ -425,7 +499,7 @@ export default function App() {
         <div style={S.summaryCard}>
           <div>
             <div style={S.summaryTitle}>Analysis Complete</div>
-            <div style={{ color: dark ? '#94a3b8' : '#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ color: dark?'#94a3b8':'#64748b', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <CheckCircle2 size={18} color="#10b981" />Processed {results.totalPages} pages across {results.parsedDocs.length} document(s).
             </div>
           </div>
@@ -449,7 +523,7 @@ export default function App() {
           <div style={S.noResults}>
             <CheckCircle2 size={48} color="#10b981" style={{ margin: '0 auto 16px', display: 'block' }} />
             <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No {activeResultTab==='text'?'Context':'Image'} Duplicates Found</div>
-            <div style={{ color: dark ? '#94a3b8' : '#64748b', fontWeight: 500 }}>Group A documents appear to have no {activeResultTab==='text'?'textual':'visual'} overlaps with Group B records.</div>
+            <div style={{ color: dark?'#94a3b8':'#64748b', fontWeight: 500 }}>Group A documents appear to have no {activeResultTab==='text'?'textual':'visual'} overlaps with Group B records.</div>
           </div>
         ) : (
           <>
@@ -461,28 +535,28 @@ export default function App() {
               return (
                 <div key={idx} style={S.matchCard}>
                   <div style={S.matchHeader}>
-                    <span style={S.matchTitle}>Match #{idx+1}{isImage&&<span style={{ color: '#e11d48', marginLeft: '8px' }}>(Image)</span>}</span>
+                    <span style={S.matchTitle}>Match #{idx+1}{isImage&&<span style={{ color:'#e11d48', marginLeft:'8px' }}>(Image)</span>}</span>
                     <span style={S.badge(isImage)}>{isImage?'Exact Image Match':`${Math.round(match.score*100)}% Match`}</span>
                   </div>
                   <div style={S.matchCols}>
                     {[
-                      { group: 'Group A (Primary)', labelColor: dark?'#60a5fa':'#1d4ed8', docName: match.docNameA, page: match.pageA, bg: dark?'#1e3a5f':'#eff6ff', border: dark?'#2563eb':'#bfdbfe', pillBg: '#2563eb', chunk: match.chunkA, pdfDoc: pdfDocA },
-                      { group: 'Group B (Target)', labelColor: dark?'#a5b4fc':'#4338ca', docName: match.docNameB, page: match.pageB, bg: dark?'#1e1b4b':'#eef2ff', border: dark?'#4f46e5':'#c7d2fe', pillBg: '#4f46e5', chunk: match.chunkB, pdfDoc: pdfDocB },
+                      { group:'Group A (Primary)', labelColor:dark?'#60a5fa':'#1d4ed8', docName:match.docNameA, page:match.pageA, bg:dark?'#1e3a5f':'#eff6ff', border:dark?'#2563eb':'#bfdbfe', pillBg:'#2563eb', chunk:match.chunkA, pdfDoc:pdfDocA },
+                      { group:'Group B (Target)', labelColor:dark?'#a5b4fc':'#4338ca', docName:match.docNameB, page:match.pageB, bg:dark?'#1e1b4b':'#eef2ff', border:dark?'#4f46e5':'#c7d2fe', pillBg:'#4f46e5', chunk:match.chunkB, pdfDoc:pdfDocB },
                     ].map(({ group, labelColor, docName, page, bg, border, pillBg, chunk, pdfDoc }, colIdx) => (
-                      <div key={group} style={{ ...S.matchCol, borderRight: colIdx===0 ? `1px solid ${dark?'#334155':'#e2e8f0'}` : 'none' }}>
+                      <div key={group} style={{ ...S.matchCol, borderRight: colIdx===0?`1px solid ${dark?'#334155':'#e2e8f0'}`:'none' }}>
                         <div style={{ ...S.groupLabel, color: labelColor }}>{group}</div>
                         <div style={S.docBadge(bg, border, labelColor)}>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontSize: '13px', fontWeight: 700 }} title={docName}>{docName}</span>
+                          <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1, fontSize:'13px', fontWeight:700 }} title={docName}>{docName}</span>
                           <span style={S.pagePill(pillBg)}>Page {page}</span>
                         </div>
                         <PdfPagePreview pdfDoc={pdfDoc} pageNum={page} S={S} />
                         <div style={S.textBox(isImage)}>
                           {isImage ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 500 }}>
+                            <div style={{ display:'flex', alignItems:'center', gap:'8px', fontWeight:500 }}>
                               <ImageIcon size={20} /><strong>Duplicate Image Detected:</strong> {match.details}
                             </div>
                           ) : (
-                            <><span style={{ display: 'block', fontWeight: 700, marginBottom: '8px' }}>Overlapping text:</span><HighlightedText text={chunk} sharedWords={sharedWords} /></>
+                            <><span style={{ display:'block', fontWeight:700, marginBottom:'8px' }}>Overlapping text:</span><HighlightedText text={chunk} sharedWords={sharedWords} /></>
                           )}
                         </div>
                       </div>
@@ -493,16 +567,16 @@ export default function App() {
             })}
             {hasMore && (
               <div style={S.loadMoreWrap}>
-                <span style={{ color: dark?'#64748b':'#64748b', fontWeight: 500, fontSize: '13px' }}>Showing {visibleMatches.length} of {displayMatches.length} matches</span>
+                <span style={{ color:'#64748b', fontWeight:500, fontSize:'13px' }}>Showing {visibleMatches.length} of {displayMatches.length} matches</span>
                 <button onClick={() => setVisibleCount(v=>v+100)} style={S.loadMoreBtn}><ChevronDown size={18} />Load {Math.min(100, remaining)} more</button>
               </div>
             )}
             {!hasMore && displayMatches.length > 100 && (
-              <div style={{ marginTop: '24px', textAlign: 'center', color: dark?'#64748b':'#64748b', fontWeight: 500, fontSize: '13px' }}>All {displayMatches.length} matches shown.</div>
+              <div style={{ marginTop:'24px', textAlign:'center', color:'#64748b', fontWeight:500, fontSize:'13px' }}>All {displayMatches.length} matches shown.</div>
             )}
           </>
         )}
-        <div style={{ ...S.center, marginTop: '40px' }}>
+        <div style={{ ...S.center, marginTop:'40px' }}>
           <button onClick={resetApp} style={S.resetBtn}><RefreshCw size={20} />Start New Batch Analysis</button>
         </div>
       </div>
@@ -518,7 +592,7 @@ export default function App() {
             <p style={S.subtitle}>Easily cross-reference multiple patient files and detect duplicate pages.</p>
           </div>
           <div style={S.headerRight}>
-            {appState==='IDLE' && <div style={S.tipBox}><AlertCircle size={20} style={{ flexShrink: 0 }} />Tip: Supports batch uploading and 2000+ page documents.</div>}
+            {appState==='IDLE' && <div style={S.tipBox}><AlertCircle size={20} style={{ flexShrink:0 }} />Tip: Supports batch uploading and 2000+ page documents.</div>}
             <button onClick={() => setDark(d=>!d)} style={S.darkBtn}>
               {dark ? <Sun size={16} /> : <Moon size={16} />}
               {dark ? 'Light' : 'Dark'}
