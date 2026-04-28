@@ -572,39 +572,43 @@ export default function App() {
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
     const HAMMING_THRESHOLD = 3;
-    // Visual hashing: compare pages where text extraction was poor on EITHER side
-    // Garbled OCR pages produce lots of chars but few real words — use word count not char count
     const isTextPoor = (pageNum, docs) => {
       const pg = docs.flatMap(d=>d.pages).find(p => p.pageNum === pageNum);
       if (!pg) return true;
       const words = extractWords(pg.text);
-      return words.length < 15; // fewer than 15 meaningful words = treat as image page
+      return words.length < 15;
     };
 
     const textLightA = visualHashesA.filter(v => isTextPoor(v.pageNum, parsedDocsA));
     const textLightB = visualHashesB.filter(v => isTextPoor(v.pageNum, parsedDocsB));
 
+    // Find best mutual match for each page — sort all pairs by distance, greedily assign
+    const allPairs = [];
     for (let i=0; i<textLightA.length; i++) {
-      const vA = textLightA[i];
-      let bestDist = HAMMING_THRESHOLD + 1;
-      let bestMatch = null;
       for (let j=0; j<textLightB.length; j++) {
-        const vB = textLightB[j];
-        const dist = hammingDistance(vA.aHash, vB.aHash);
-        if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
-          bestDist = dist;
-          bestMatch = vB;
+        const dist = hammingDistance(textLightA[i].aHash, textLightB[j].aHash);
+        if (dist <= HAMMING_THRESHOLD) {
+          allPairs.push({ i, j, dist });
         }
       }
-      if (bestMatch) {
-        const pairKey = `${vA.docId}-${vA.pageNum}|${bestMatch.docId}-${bestMatch.pageNum}`;
-        if (!seenPagePairs.has(pairKey)) {
-          seenPagePairs.add(pairKey);
-          const score = 1 - (bestDist / 128);
-          matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:bestMatch.docId, docNameB:bestMatch.docName, pageB:bestMatch.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
-        }
+    }
+    // Sort by distance ascending — best matches first
+    allPairs.sort((a,b) => a.dist - b.dist);
+
+    const usedA = new Set();
+    const usedB = new Set();
+    for (const pair of allPairs) {
+      if (usedA.has(pair.i) || usedB.has(pair.j)) continue;
+      usedA.add(pair.i);
+      usedB.add(pair.j);
+      const vA = textLightA[pair.i];
+      const vB = textLightB[pair.j];
+      const pairKey = `${vA.docId}-${vA.pageNum}|${vB.docId}-${vB.pageNum}`;
+      if (!seenPagePairs.has(pairKey)) {
+        seenPagePairs.add(pairKey);
+        const score = 1 - (pair.dist / 128);
+        matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:vB.docId, docNameB:vB.docName, pageB:vB.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
       }
-      if (i % 10 === 0) await yieldToBrowser();
     }
 
     // Embedded image object comparison (fallback for non-scanned PDFs)
