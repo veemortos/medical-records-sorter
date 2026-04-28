@@ -58,9 +58,39 @@ const makeStyles = (dark) => ({
   fullscreenBtn: { position: 'absolute', top: '12px', right: '12px', padding: '8px', background: dark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', color: dark ? '#94a3b8' : '#334155', borderRadius: '8px', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, cursor: 'pointer', display: 'flex', alignItems: 'center' },
 });
 
-const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had"]);
-function extractWords(text) { return Array.from(new Set(text.toLowerCase().match(/\b[a-z]{3,}\b/g)||[])).filter(w=>!STOP_WORDS.has(w)); }
+const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit"]);
+
+function extractWords(text) {
+  // Normalize: lowercase, strip page headers/footers, extract meaningful words
+  const cleaned = text.toLowerCase()
+    .replace(/page \d+ of \d+/gi, '')
+    .replace(/printed \d{4}/gi, '')
+    .replace(/\b\d{1,2}[-\/]\w{3,}[-\/]\d{2,4}\b/g, '') // dates
+    .replace(/\b\d{4,}\b/g, ''); // long numbers (IDs, MRNs)
+  return Array.from(new Set(cleaned.match(/\b[a-z]{3,}\b/g)||[])).filter(w=>!STOP_WORDS.has(w));
+}
+
+function extractWordsRaw(text) {
+  // Less aggressive — keeps numbers, for fingerprinting
+  return text.toLowerCase().match(/\b\w{3,}\b/g) || [];
+}
+
 function calculateJaccard(setA,setB) { let i=0; for(let e of setA){if(setB.has(e))i++;} let u=setA.size+setB.size-i; return u===0?0:i/u; }
+
+function fingerprintPage(text) {
+  // Create a stable fingerprint from the most distinctive words on a page
+  const words = extractWordsRaw(text);
+  const freq = {};
+  words.forEach(w => { freq[w] = (freq[w]||0)+1; });
+  // Take top 30 most frequent non-stopword tokens as the fingerprint
+  return new Set(
+    Object.entries(freq)
+      .filter(([w]) => !STOP_WORDS.has(w) && w.length >= 3)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0,30)
+      .map(([w]) => w)
+  );
+}
 const yieldToBrowser = async()=>new Promise(r=>setTimeout(r,0));
 
 // Faster: process pages in parallel batches of 8
@@ -328,8 +358,9 @@ export default function App() {
       docs.forEach(doc => {
         doc.pages.forEach(p => {
           const words = extractWords(p.text);
+          const fingerprint = fingerprintPage(p.text);
           if (words.length > 5) {
-            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: new Set(words) });
+            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: new Set(words), fingerprint });
           }
         });
       });
@@ -371,15 +402,17 @@ export default function App() {
       const pageA = pageSetsA[i];
       for (let j = 0; j < pageSetsB.length; j++) {
         const pageB = pageSetsB[j];
+        // Check both full word set and fingerprint similarity
         const score = calculateJaccard(pageA.wordSet, pageB.wordSet);
-        if (score >= PAGE_THRESHOLD) {
+        const fpScore = calculateJaccard(pageA.fingerprint, pageB.fingerprint);
+        const bestScore = Math.max(score, fpScore);
+        if (bestScore >= PAGE_THRESHOLD) {
           const pairKey = `${pageA.docId}-${pageA.pageNum}|${pageB.docId}-${pageB.pageNum}`;
           if (!seenPagePairs.has(pairKey)) {
             seenPagePairs.add(pairKey);
-            // Use a snippet from each page for display
             const snippetA = pageA.text.slice(0, 300);
             const snippetB = pageB.text.slice(0, 300);
-            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score });
+            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score: bestScore });
           }
         }
       }
@@ -568,8 +601,8 @@ export default function App() {
   const renderIdleState = () => (
     <div>
       <div style={S.grid2}>
-        <UploadZone label="Group A (Primary)" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
-        <UploadZone label="Group B (Target)" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
+        <UploadZone label="Received Medical Records" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
+        <UploadZone label="ERE Medical Records" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
@@ -637,7 +670,7 @@ export default function App() {
           <div style={S.noResults}>
             <CheckCircle2 size={48} color="#10b981" style={{ margin: '0 auto 16px', display: 'block' }} />
             <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '8px' }}>No {activeResultTab==='text'?'Context':'Image'} Duplicates Found</div>
-            <div style={{ color: dark?'#94a3b8':'#64748b', fontWeight: 500 }}>Group A documents appear to have no {activeResultTab==='text'?'textual':'visual'} overlaps with Group B records.</div>
+            <div style={{ color: dark?'#94a3b8':'#64748b', fontWeight: 500 }}>Received Medical Records appear to have no {activeResultTab==='text'?'textual':'visual'} overlaps with Group B records.</div>
           </div>
         ) : (
           <>
@@ -654,8 +687,8 @@ export default function App() {
                   </div>
                   <div style={S.matchCols}>
                     {[
-                      { group:'Group A (Primary)', labelColor:dark?'#60a5fa':'#1d4ed8', docName:match.docNameA, page:match.pageA, bg:dark?'#1e3a5f':'#eff6ff', border:dark?'#2563eb':'#bfdbfe', pillBg:'#2563eb', chunk:match.chunkA, pdfDoc:pdfDocA },
-                      { group:'Group B (Target)', labelColor:dark?'#a5b4fc':'#4338ca', docName:match.docNameB, page:match.pageB, bg:dark?'#1e1b4b':'#eef2ff', border:dark?'#4f46e5':'#c7d2fe', pillBg:'#4f46e5', chunk:match.chunkB, pdfDoc:pdfDocB },
+                      { group:'Received Medical Records', labelColor:dark?'#60a5fa':'#1d4ed8', docName:match.docNameA, page:match.pageA, bg:dark?'#1e3a5f':'#eff6ff', border:dark?'#2563eb':'#bfdbfe', pillBg:'#2563eb', chunk:match.chunkA, pdfDoc:pdfDocA },
+                      { group:'ERE Medical Records', labelColor:dark?'#a5b4fc':'#4338ca', docName:match.docNameB, page:match.pageB, bg:dark?'#1e1b4b':'#eef2ff', border:dark?'#4f46e5':'#c7d2fe', pillBg:'#4f46e5', chunk:match.chunkB, pdfDoc:pdfDocB },
                     ].map(({ group, labelColor, docName, page, bg, border, pillBg, chunk, pdfDoc }, colIdx) => (
                       <div key={group} style={{ ...S.matchCol, borderRight: colIdx===0?`1px solid ${dark?'#334155':'#e2e8f0'}`:'none' }}>
                         <div style={{ ...S.groupLabel, color: labelColor }}>{group}</div>
