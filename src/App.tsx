@@ -16,7 +16,7 @@ const makeStyles = (dark) => ({
   cardDesc: { color: dark ? '#94a3b8' : '#64748b', fontSize: '13px', marginBottom: '16px' },
   uploadBtn: (color) => ({ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px 16px', border: `2px dashed ${color}`, borderRadius: '14px', color, background: 'transparent', cursor: 'pointer', fontFamily: 'Verdana, sans-serif', gap: '6px' }),
   uploadBtnText: { fontWeight: 700, fontSize: '15px' },
-  fileListWrap: { marginTop: '12px', flex: 1, background: dark ? '#0f172a' : '#f8fafc', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, borderRadius: '14px', padding: '12px', maxHeight: '180px', overflowY: 'auto' },
+  fileListWrap: { marginTop: '12px', flex: 1, background: 'transparent', border: 'none', padding: '0', maxHeight: '180px', overflowY: 'auto' },
   emptyState: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px', color: dark ? '#475569' : '#94a3b8', minHeight: '120px' },
   fileItem: { background: dark ? '#1e293b' : '#fff', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, padding: '10px 12px', borderRadius: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' },
   fileIcon: { background: dark ? '#1e3a5f' : '#dbeafe', color: dark ? '#60a5fa' : '#1d4ed8', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '10px', flexShrink: 0 },
@@ -438,7 +438,7 @@ export default function App() {
     ));
   };
 
-  const renderUploadZone = ({ label, desc, color, files, setFiles, ref }) => {
+  const UploadZone = ({ label, desc, color, files, setFiles, inputRef }) => {
     const [isDragging, setIsDragging] = useState(false);
 
     const handleDrop = (e) => {
@@ -452,34 +452,59 @@ export default function App() {
     const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
     const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
 
-    const dropZoneStyle = {
-      width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '32px 16px', border: `2px dashed ${isDragging ? color : (dark ? '#334155' : '#cbd5e1')}`,
-      borderRadius: '14px', color: isDragging ? color : (dark ? '#64748b' : '#94a3b8'),
-      background: isDragging ? (dark ? `rgba(59,130,246,0.08)` : `rgba(59,130,246,0.04)`) : 'transparent',
-      cursor: 'pointer', fontFamily: 'Verdana, sans-serif', gap: '8px',
-      transition: 'border-color 0.15s, background 0.15s, color 0.15s',
+    const cardStyle = {
+      ...S.card,
+      border: isDragging ? `2px dashed ${color}` : `1px solid ${dark ? '#334155' : '#e2e8f0'}`,
+      background: isDragging ? (dark ? 'rgba(59,130,246,0.06)' : 'rgba(59,130,246,0.02)') : (dark ? '#1e293b' : '#fff'),
+      transition: 'border 0.15s, background 0.15s',
     };
 
     return (
-      <div key={label} style={S.card}>
+      <div
+        style={cardStyle}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         <div style={S.cardTitle}><FileText size={20} color={color} />{label}</div>
         <div style={S.cardDesc}>{desc}</div>
-        <input type="file" accept=".pdf" multiple ref={ref} onChange={e => handleFileUpload(e, setFiles)} style={{ display: 'none' }} />
+        <input type="file" accept=".pdf" multiple ref={inputRef} onChange={e => handleFileUpload(e, setFiles)} style={{ display: 'none' }} />
+
+        {/* Drop zone click area */}
         <div
-          style={dropZoneStyle}
-          onClick={() => ref.current.click()}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
+          onClick={() => inputRef.current.click()}
+          style={{
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '28px 16px', borderRadius: '12px', cursor: 'pointer', gap: '6px',
+            border: `2px dashed ${isDragging ? color : (dark ? '#334155' : '#e2e8f0')}`,
+            color: isDragging ? color : (dark ? '#64748b' : '#94a3b8'),
+            background: isDragging ? 'transparent' : (dark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)'),
+          }}
         >
-          <UploadCloud size={32} color={isDragging ? color : undefined} />
-          <span style={{ fontWeight: 700, fontSize: '15px' }}>
+          <UploadCloud size={28} color={isDragging ? color : undefined} />
+          <span style={{ fontWeight: 700, fontSize: '14px' }}>
             {isDragging ? 'Drop PDF files here' : 'Drag & drop PDFs here'}
           </span>
-          <span style={{ fontSize: '12px', opacity: 0.7 }}>or click to browse</span>
+          <span style={{ fontSize: '12px', opacity: 0.6 }}>or click to browse</span>
         </div>
-        <div style={S.fileListWrap}>{renderFileList(files, setFiles)}</div>
+
+        {/* File list — only shown when files exist */}
+        {files.length > 0 && (
+          <div style={{ marginTop: '12px', maxHeight: '180px', overflowY: 'auto' }}>
+            {files.map(fileItem => (
+              <div key={fileItem.id} style={S.fileItem}>
+                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', marginRight: '8px' }}>
+                  <div style={S.fileIcon}><FileText size={16} /></div>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={S.fileName} title={fileItem.name}>{fileItem.name}</div>
+                    <div style={S.fileSize}>{fileItem.size}</div>
+                  </div>
+                </div>
+                <button onClick={() => removeFile(fileItem.id, setFiles)} style={S.trashBtn}><Trash2 size={16} /></button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -487,10 +512,8 @@ export default function App() {
   const renderIdleState = () => (
     <div>
       <div style={S.grid2}>
-        {[
-          { label: 'Group A (Primary)', desc: 'Upload the main documents here. You can select multiple files at once.', color: '#3b82f6', files: filesA, setFiles: setFilesA, ref: fileInputARef },
-          { label: 'Group B (Target)', desc: 'Upload the documents to compare against. You can select multiple files at once.', color: '#6366f1', files: filesB, setFiles: setFilesB, ref: fileInputBRef },
-        ].map(props => renderUploadZone(props))}
+        <UploadZone label="Group A (Primary)" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
+        <UploadZone label="Group B (Target)" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
