@@ -537,52 +537,38 @@ export default function App() {
     const visualHashesA=[]; parsedDocsA.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesA.push({...h,docId:doc.id,docName:doc.name})));
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
-    const HAMMING_THRESHOLD = 6; // Max 6 bits different out of 128 (95%+ similar)
+    const HAMMING_THRESHOLD = 3; // Very tight: max 3 bits different out of 128 (97.6%+ similar)
+    // Only apply visual matching to pages with very little text (image-heavy pages)
+    const textLightPagesA = visualHashesA.filter(v => {
+      const pg = parsedDocsA.flatMap(d=>d.pages).find(p => p.pageNum === v.pageNum);
+      return !pg || pg.text.trim().length < 200; // less than 200 chars = image-heavy
+    });
+    const textLightPagesB = visualHashesB.filter(v => {
+      const pg = parsedDocsB.flatMap(d=>d.pages).find(p => p.pageNum === v.pageNum);
+      return !pg || pg.text.trim().length < 200;
+    });
 
-    // Build best match from B's perspective first
-    const bestMatchFromB = new Map(); // key: B page index → { dist, vA }
-    for (let j=0; j<visualHashesB.length; j++) {
-      const vB = visualHashesB[j];
+    for (let i=0; i<textLightPagesA.length; i++) {
+      const vA = textLightPagesA[i];
       let bestDist = HAMMING_THRESHOLD + 1;
-      let bestA = null;
-      for (let i=0; i<visualHashesA.length; i++) {
-        const vA = visualHashesA[i];
+      let bestMatch = null;
+      for (let j=0; j<textLightPagesB.length; j++) {
+        const vB = textLightPagesB[j];
         const dist = hammingDistance(vA.aHash, vB.aHash);
         if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
           bestDist = dist;
-          bestA = { vA, dist };
+          bestMatch = vB;
         }
       }
-      if (bestA) bestMatchFromB.set(j, bestA);
-    }
-
-    // Now confirm from A's perspective — only keep matches that are mutual best matches
-    for (let i=0; i<visualHashesA.length; i++) {
-      const vA = visualHashesA[i];
-      let bestDist = HAMMING_THRESHOLD + 1;
-      let bestJ = -1;
-      for (let j=0; j<visualHashesB.length; j++) {
-        const vB = visualHashesB[j];
-        const dist = hammingDistance(vA.aHash, vB.aHash);
-        if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
-          bestDist = dist;
-          bestJ = j;
+      if (bestMatch) {
+        const pairKey = `${vA.docId}-${vA.pageNum}|${bestMatch.docId}-${bestMatch.pageNum}`;
+        if (!seenPagePairs.has(pairKey)) {
+          seenPagePairs.add(pairKey);
+          const score = 1 - (bestDist / 128);
+          matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:bestMatch.docId, docNameB:bestMatch.docName, pageB:bestMatch.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
         }
       }
-      if (bestJ >= 0) {
-        // Confirm B also considers A its best match
-        const bBest = bestMatchFromB.get(bestJ);
-        if (bBest && bBest.vA === vA) {
-          const vB = visualHashesB[bestJ];
-          const pairKey = `${vA.docId}-${vA.pageNum}|${vB.docId}-${vB.pageNum}`;
-          if (!seenPagePairs.has(pairKey)) {
-            seenPagePairs.add(pairKey);
-            const score = 1 - (bestDist / 128);
-            matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:vB.docId, docNameB:vB.docName, pageB:vB.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
-          }
-        }
-      }
-      if (i % 20 === 0) await yieldToBrowser();
+      if (i % 10 === 0) await yieldToBrowser();
     }
 
     // Embedded image object comparison (fallback for non-scanned PDFs)
