@@ -121,7 +121,7 @@ async function renderPageToHash(page, pageNum) {
   // Render the entire page to a small canvas and hash pixel data
   // This works on scanned pages, image-heavy pages, and mixed content
   try {
-    const THUMB_SIZE = 64; // 64x64 thumbnail for fast comparison
+    const THUMB_SIZE = 128; // 128x128 for better discrimination
     const viewport = page.getViewport({ scale: 1.0 });
     const scale = Math.min(THUMB_SIZE / viewport.width, THUMB_SIZE / viewport.height);
     const scaledViewport = page.getViewport({ scale });
@@ -142,9 +142,9 @@ async function renderPageToHash(page, pageNum) {
       gray.push(Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]));
     }
 
-    // Average hash: compare each pixel to mean, store as binary string
+    // Average hash: compare each pixel to mean, store as binary string (128 bits)
     const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
-    const aHash = gray.slice(0, 64).map(v => v >= mean ? '1' : '0').join('');
+    const aHash = gray.slice(0, 128).map(v => v >= mean ? '1' : '0').join('');
 
     // Also compute a simple polynomial hash for secondary comparison
     let polyHash = 0;
@@ -537,19 +537,26 @@ export default function App() {
     const visualHashesA=[]; parsedDocsA.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesA.push({...h,docId:doc.id,docName:doc.name})));
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
-    const HAMMING_THRESHOLD = 8; // Allow up to 8 differing bits out of 64
+    const HAMMING_THRESHOLD = 6; // Max 6 bits different out of 128 (95%+ similar)
+    // For each Group A page, only keep the single best matching Group B page
     for (let i=0; i<visualHashesA.length; i++) {
       const vA = visualHashesA[i];
+      let bestMatch = null;
+      let bestDist = HAMMING_THRESHOLD + 1;
       for (let j=0; j<visualHashesB.length; j++) {
         const vB = visualHashesB[j];
         const dist = hammingDistance(vA.aHash, vB.aHash);
-        if (dist <= HAMMING_THRESHOLD) {
-          const pairKey = `${vA.docId}-${vA.pageNum}|${vB.docId}-${vB.pageNum}`;
-          if (!seenPagePairs.has(pairKey)) {
-            seenPagePairs.add(pairKey);
-            const score = 1 - (dist / 64);
-            matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:vB.docId, docNameB:vB.docName, pageB:vB.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
-          }
+        if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
+          bestDist = dist;
+          bestMatch = vB;
+        }
+      }
+      if (bestMatch) {
+        const pairKey = `${vA.docId}-${vA.pageNum}|${bestMatch.docId}-${bestMatch.pageNum}`;
+        if (!seenPagePairs.has(pairKey)) {
+          seenPagePairs.add(pairKey);
+          const score = 1 - (bestDist / 128);
+          matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:bestMatch.docId, docNameB:bestMatch.docName, pageB:bestMatch.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
         }
       }
       if (i % 20 === 0) await yieldToBrowser();
