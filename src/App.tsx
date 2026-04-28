@@ -58,7 +58,7 @@ const makeStyles = (dark) => ({
   fullscreenBtn: { position: 'absolute', top: '12px', right: '12px', padding: '8px', background: dark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', color: dark ? '#94a3b8' : '#334155', borderRadius: '8px', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, cursor: 'pointer', display: 'flex', alignItems: 'center' },
 });
 
-const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day","zyks","christopher","allen","comanche","county","memorial","hospital","stokesberry","attending","location","acute"]);
+const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day"]);
 
 function repairOcrText(text) {
   // Rejoin characters that were split by OCR (e.g. "H el tc el" → "Heltcel")
@@ -148,35 +148,36 @@ async function extractTextFromPdf(pdf, fileName, onProgress) {
 }
 
 async function renderPageToHash(page, pageNum) {
-  // Render the entire page to a small canvas and hash pixel data
-  // This works on scanned pages, image-heavy pages, and mixed content
   try {
-    const THUMB_SIZE = 128; // 128x128 for better discrimination
+    const THUMB_W = 128;
+    const THUMB_H = 128;
     const viewport = page.getViewport({ scale: 1.0 });
-    const scale = Math.min(THUMB_SIZE / viewport.width, THUMB_SIZE / viewport.height);
+    const scale = Math.min(THUMB_W / viewport.width, THUMB_H / viewport.height);
     const scaledViewport = page.getViewport({ scale });
 
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(scaledViewport.width);
     canvas.height = Math.round(scaledViewport.height);
     const ctx = canvas.getContext('2d');
-
     await page.render({ canvasContext: ctx, viewport: scaledViewport }).promise;
 
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    // Crop top 15% to ignore header bars added by ERE/document management systems
+    const cropTop = Math.floor(canvas.height * 0.15);
+    const cropHeight = canvas.height - cropTop;
+    const imageData = ctx.getImageData(0, cropTop, canvas.width, cropHeight);
     const data = imageData.data;
 
-    // Convert to grayscale array for perceptual hashing
+    // Convert to grayscale
     const gray = [];
     for (let i = 0; i < data.length; i += 4) {
       gray.push(Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]));
     }
 
-    // Average hash: compare each pixel to mean, store as binary string (128 bits)
+    // Average hash over 128 pixels
     const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
     const aHash = gray.slice(0, 128).map(v => v >= mean ? '1' : '0').join('');
 
-    // Also compute a simple polynomial hash for secondary comparison
+    // Polynomial hash for secondary check
     let polyHash = 0;
     const step = Math.max(1, Math.floor(gray.length / 256));
     for (let i = 0; i < gray.length; i += step) {
@@ -489,8 +490,8 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.25;
-    const CHUNK_THRESHOLD = 0.30;
+    const PAGE_THRESHOLD = 0.40;
+    const CHUNK_THRESHOLD = 0.40;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
