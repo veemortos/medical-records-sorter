@@ -582,24 +582,27 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.15;
-    const CHUNK_THRESHOLD = 0.15;
+    const PAGE_THRESHOLD = 0.30;
+    const CHUNK_THRESHOLD = 0.30;
     const seenPagePairs = new Set();
+    const bestMatchPerPageA = new Map(); // Track best match per Group A page
     let lastYield = Date.now();
 
-    // PASS 1: Whole-page comparison using distinctive words
+    // PASS 1: Whole-page comparison
     for (let i = 0; i < pageSetsA.length; i++) {
       const pageA = pageSetsA[i];
       for (let j = 0; j < pageSetsB.length; j++) {
         const pageB = pageSetsB[j];
         const score = calculateJaccard(pageA.wordSet, pageB.wordSet);
         if (score >= PAGE_THRESHOLD) {
-          const pairKey = `${pageA.docId}-${pageA.pageNum}|${pageB.docId}-${pageB.pageNum}`;
-          if (!seenPagePairs.has(pairKey)) {
-            seenPagePairs.add(pairKey);
-            const snippetA = pageA.text.slice(0, 300);
-            const snippetB = pageB.text.slice(0, 300);
-            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score });
+          const pageAKey = `${pageA.docId}-${pageA.pageNum}`;
+          const existing = bestMatchPerPageA.get(pageAKey);
+          if (!existing || score > existing.score) {
+            bestMatchPerPageA.set(pageAKey, {
+              type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum,
+              chunkA: pageA.text.slice(0, 300), docB: pageB.docId, docNameB: pageB.docName,
+              pageB: pageB.pageNum, chunkB: pageB.text.slice(0, 300), score
+            });
           }
         }
       }
@@ -608,6 +611,13 @@ export default function App() {
         await yieldToBrowser();
         lastYield = Date.now();
       }
+    }
+
+    // Add best page-level matches to results
+    for (const match of bestMatchPerPageA.values()) {
+      const pairKey = `${match.docA}-${match.pageA}|${match.docB}-${match.pageB}`;
+      seenPagePairs.add(pairKey);
+      matches.push(match);
     }
 
     setProgress({percent:68, message:'Building chunk search index (Group B)...'});
@@ -644,9 +654,11 @@ export default function App() {
         const best = chunkMatches[0];
         const chunkB = allChunksB[best.idxB];
         const pairKey = `${chunkA.docId}-${chunkA.pageNum}|${chunkB.docId}-${chunkB.pageNum}`;
-        // Only add chunk match if no page-level match already covers this page pair
-        if (!seenPagePairs.has(pairKey)) {
+        const pageAKey = `${chunkA.docId}-${chunkA.pageNum}`;
+        // Only add if this page pair not already matched AND this page A not already matched
+        if (!seenPagePairs.has(pairKey) && !bestMatchPerPageA.has(pageAKey)) {
           seenPagePairs.add(pairKey);
+          bestMatchPerPageA.set(pageAKey, true);
           matches.push({ type: 'text', docA: chunkA.docId, docNameA: chunkA.docName, pageA: chunkA.pageNum, chunkA: chunkA.text, docB: chunkB.docId, docNameB: chunkB.docName, pageB: chunkB.pageNum, chunkB: chunkB.text, score: best.score });
         }
       }
