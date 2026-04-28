@@ -142,11 +142,13 @@ async function renderPageForOcr(page) {
 async function runOcr(canvas) {
   try {
     if (!window.Tesseract) return '';
-    const result = await window.Tesseract.recognize(canvas, 'eng', {
-      logger: () => {} // suppress Tesseract logs
-    });
+    // Tesseract.js v5 API
+    const worker = await window.Tesseract.createWorker('eng');
+    const result = await worker.recognize(canvas);
+    await worker.terminate();
     return result.data.text || '';
   } catch(e) {
+    console.warn('OCR error:', e);
     return '';
   }
 }
@@ -154,40 +156,56 @@ async function runOcr(canvas) {
 async function extractTextFromPdf(pdf, fileName, onProgress, onOcr) {
   const BATCH = 8;
   const pages = [];
-  const OCR_THRESHOLD = 50; // chars — below this, try OCR
+  const OCR_THRESHOLD = 50;
 
-  for (let i = 1; i <= pdf.numPages; i += BATCH) {
-    const batch = [];
-    for (let j = i; j < Math.min(i + BATCH, pdf.numPages + 1); j++) {
-      batch.push(
-        pdf.getPage(j).then(async page => {
-          const textContent = await page.getTextContent();
-          let text = textContent.items.map(item => item.str).join(' ');
-
-          // If very little text extracted, try OCR
-          if (text.trim().length < OCR_THRESHOLD && window.Tesseract) {
-            try {
-              onOcr && onOcr(j);
-              const canvas = await renderPageForOcr(page);
-              if (canvas) {
-                const ocrText = await runOcr(canvas);
-                if (ocrText.trim().length > text.trim().length) {
-                  text = ocrText;
-                }
-              }
-            } catch(e) {}
-          }
-
-          page.cleanup();
-          return { pageNum: j, text };
-        }).catch(() => ({ pageNum: j, text: '' }))
-      );
+  // Create one shared OCR worker for this document
+  let ocrWorker = null;
+  if (window.Tesseract) {
+    try {
+      ocrWorker = await window.Tesseract.createWorker('eng');
+    } catch(e) {
+      console.warn('Tesseract worker failed to init:', e);
     }
-    const results = await Promise.all(batch);
-    pages.push(...results);
-    onProgress(Math.min(i + BATCH - 1, pdf.numPages), pdf.numPages);
-    await yieldToBrowser();
   }
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    try {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      let text = textContent.items.map(item => item.str).join(' ');
+
+      // If very little text extracted, try OCR
+      if (text.trim().length < OCR_THRESHOLD && ocrWorker) {
+        try {
+          onOcr && onOcr(i);
+          const canvas = await renderPageForOcr(page);
+          if (canvas) {
+            const result = await ocrWorker.recognize(canvas);
+            const ocrText = result.data.text || '';
+            if (ocrText.trim().length > text.trim().length) {
+              text = ocrText;
+            }
+          }
+        } catch(e) {
+          console.warn('OCR failed for page', i, e);
+        }
+      }
+
+      page.cleanup();
+      pages.push({ pageNum: i, text });
+    } catch(e) {
+      pages.push({ pageNum: i, text: '' });
+    }
+
+    onProgress(i, pdf.numPages);
+    if (i % 5 === 0) await yieldToBrowser();
+  }
+
+  // Clean up OCR worker
+  if (ocrWorker) {
+    try { await ocrWorker.terminate(); } catch(e) {}
+  }
+
   return pages;
 }
 
@@ -549,8 +567,8 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.40;
-    const CHUNK_THRESHOLD = 0.40;
+    const PAGE_THRESHOLD = 0.25;
+    const CHUNK_THRESHOLD = 0.25;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
