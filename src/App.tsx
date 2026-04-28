@@ -58,15 +58,14 @@ const makeStyles = (dark) => ({
   fullscreenBtn: { position: 'absolute', top: '12px', right: '12px', padding: '8px', background: dark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', color: dark ? '#94a3b8' : '#334155', borderRadius: '8px', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, cursor: 'pointer', display: 'flex', alignItems: 'center' },
 });
 
-const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit"]);
+const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","christopher","zyks","allen","comanche","county","memorial","hospital","stokesberry","david","attending","history","physical","note","2025","2024","2023","2022","location","acute","milligram","orally","daily","times","per","day","notes","history","present"]);
 
 function extractWords(text) {
-  // Normalize: lowercase, strip page headers/footers, extract meaningful words
   const cleaned = text.toLowerCase()
     .replace(/page \d+ of \d+/gi, '')
     .replace(/printed \d{4}/gi, '')
-    .replace(/\b\d{1,2}[-\/]\w{3,}[-\/]\d{2,4}\b/g, '') // dates
-    .replace(/\b\d{4,}\b/g, ''); // long numbers (IDs, MRNs)
+    .replace(/\b\d{1,2}[-\/]\w{3,}[-\/]\d{2,4}\b/g, '')
+    .replace(/\b\d{4,}\b/g, '');
   return Array.from(new Set(cleaned.match(/\b[a-z]{3,}\b/g)||[])).filter(w=>!STOP_WORDS.has(w));
 }
 
@@ -452,8 +451,8 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.15; // Very low — catches pages with even sparse shared text
-    const CHUNK_THRESHOLD = 0.20;
+    const PAGE_THRESHOLD = 0.35; // Strict enough to avoid false positives
+    const CHUNK_THRESHOLD = 0.35;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
