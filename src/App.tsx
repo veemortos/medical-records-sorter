@@ -60,8 +60,18 @@ const makeStyles = (dark) => ({
 
 const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day"]);
 
+function repairOcrText(text) {
+  // Rejoin characters that were split by OCR (e.g. "H el tc el" → "Heltcel")
+  // Pattern: sequences of 1-4 char tokens separated by single spaces
+  return text
+    .replace(/\b([A-Za-z]{1,3}) ([A-Za-z]{1,3}) ([A-Za-z]{1,3}) ([A-Za-z]{1,3})\b/g, '$1$2$3$4')
+    .replace(/\b([A-Za-z]{1,3}) ([A-Za-z]{1,3}) ([A-Za-z]{1,3})\b/g, '$1$2$3')
+    .replace(/\b([A-Za-z]{1,3}) ([A-Za-z]{1,3})\b/g, '$1$2');
+}
+
 function extractWords(text) {
-  const cleaned = text.toLowerCase()
+  const repaired = repairOcrText(text);
+  const cleaned = repaired.toLowerCase()
     .replace(/page \d+ of \d+/gi, '')
     .replace(/printed \d{4}/gi, '')
     .replace(/\b\d{1,2}[-\/]\w{3,}[-\/]\d{2,4}\b/g, '')
@@ -562,8 +572,40 @@ export default function App() {
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
     const HAMMING_THRESHOLD = 3;
-    // Visual hashing disabled — too many false positives on medical records
-    // Text matching handles duplicates; image-only pages are noted separately
+    // Visual hashing: compare pages where text extraction was poor on EITHER side
+    // Garbled OCR pages produce lots of chars but few real words — use word count not char count
+    const isTextPoor = (pageNum, docs) => {
+      const pg = docs.flatMap(d=>d.pages).find(p => p.pageNum === pageNum);
+      if (!pg) return true;
+      const words = extractWords(pg.text);
+      return words.length < 15; // fewer than 15 meaningful words = treat as image page
+    };
+
+    const textLightA = visualHashesA.filter(v => isTextPoor(v.pageNum, parsedDocsA));
+    const textLightB = visualHashesB.filter(v => isTextPoor(v.pageNum, parsedDocsB));
+
+    for (let i=0; i<textLightA.length; i++) {
+      const vA = textLightA[i];
+      let bestDist = HAMMING_THRESHOLD + 1;
+      let bestMatch = null;
+      for (let j=0; j<textLightB.length; j++) {
+        const vB = textLightB[j];
+        const dist = hammingDistance(vA.aHash, vB.aHash);
+        if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
+          bestDist = dist;
+          bestMatch = vB;
+        }
+      }
+      if (bestMatch) {
+        const pairKey = `${vA.docId}-${vA.pageNum}|${bestMatch.docId}-${bestMatch.pageNum}`;
+        if (!seenPagePairs.has(pairKey)) {
+          seenPagePairs.add(pairKey);
+          const score = 1 - (bestDist / 128);
+          matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:bestMatch.docId, docNameB:bestMatch.docName, pageB:bestMatch.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
+        }
+      }
+      if (i % 10 === 0) await yieldToBrowser();
+    }
 
     // Embedded image object comparison (fallback for non-scanned PDFs)
     const allImagesA=[]; parsedDocsA.forEach(doc=>doc.imageHashes.forEach(img=>allImagesA.push({...img,docId:doc.id,docName:doc.name})));
