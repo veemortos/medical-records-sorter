@@ -123,17 +123,61 @@ function fingerprintPage(text) {
 }
 const yieldToBrowser = async()=>new Promise(r=>setTimeout(r,0));
 
-// Faster: process pages in parallel batches of 8
-async function extractTextFromPdf(pdf, fileName, onProgress) {
+// Render a page to a canvas at full resolution for OCR
+async function renderPageForOcr(page) {
+  try {
+    const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for better OCR accuracy
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    return canvas;
+  } catch(e) {
+    return null;
+  }
+}
+
+// Run Tesseract OCR on a canvas element
+async function runOcr(canvas) {
+  try {
+    if (!window.Tesseract) return '';
+    const result = await window.Tesseract.recognize(canvas, 'eng', {
+      logger: () => {} // suppress Tesseract logs
+    });
+    return result.data.text || '';
+  } catch(e) {
+    return '';
+  }
+}
+
+async function extractTextFromPdf(pdf, fileName, onProgress, onOcr) {
   const BATCH = 8;
   const pages = [];
+  const OCR_THRESHOLD = 50; // chars — below this, try OCR
+
   for (let i = 1; i <= pdf.numPages; i += BATCH) {
     const batch = [];
     for (let j = i; j < Math.min(i + BATCH, pdf.numPages + 1); j++) {
       batch.push(
         pdf.getPage(j).then(async page => {
           const textContent = await page.getTextContent();
-          const text = textContent.items.map(item => item.str).join(' ');
+          let text = textContent.items.map(item => item.str).join(' ');
+
+          // If very little text extracted, try OCR
+          if (text.trim().length < OCR_THRESHOLD && window.Tesseract) {
+            try {
+              onOcr && onOcr(j);
+              const canvas = await renderPageForOcr(page);
+              if (canvas) {
+                const ocrText = await runOcr(canvas);
+                if (ocrText.trim().length > text.trim().length) {
+                  text = ocrText;
+                }
+              }
+            } catch(e) {}
+          }
+
           page.cleanup();
           return { pageNum: j, text };
         }).catch(() => ({ pageNum: j, text: '' }))
@@ -369,11 +413,21 @@ export default function App() {
   const S = makeStyles(dark);
 
   useEffect(() => {
+    // Load PDF.js
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
     script.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js'; };
     document.head.appendChild(script);
-    return () => { if (document.head.contains(script)) document.head.removeChild(script); };
+
+    // Load Tesseract.js for OCR on scanned pages
+    const tScript = document.createElement('script');
+    tScript.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    document.head.appendChild(tScript);
+
+    return () => {
+      if (document.head.contains(script)) document.head.removeChild(script);
+      if (document.head.contains(tScript)) document.head.removeChild(tScript);
+    };
   }, []);
 
   useEffect(() => { setVisibleCount(100); }, [activeResultTab]);
@@ -402,7 +456,7 @@ export default function App() {
           const arrayBuffer = await fileItem.file.arrayBuffer();
           const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
 
-          // Fast parallel text extraction
+          // Fast parallel text extraction with OCR fallback for scanned pages
           const pages = await extractTextFromPdf(pdf, fileItem.name, (done, total) => {
             const basePct = startPct + ((docIdx/fileList.length)*(endPct-startPct));
             const withinDoc = (done/total)*((endPct-startPct)/fileList.length);
@@ -410,6 +464,11 @@ export default function App() {
               percent: Math.floor(basePct + withinDoc),
               message: `Reading ${label} — ${fileItem.name} (${done}/${total} pages)...`
             });
+          }, (pageNum) => {
+            setProgress(prev => ({
+              ...prev,
+              message: `OCR scanning ${label} — ${fileItem.name} page ${pageNum}...`
+            }));
           });
           totalPagesProcessed += pages.length;
 
@@ -883,7 +942,7 @@ export default function App() {
             <p style={S.subtitle}>Easily cross-reference multiple patient files and detect duplicate pages.</p>
           </div>
           <div style={S.headerRight}>
-            {appState==='IDLE' && <div style={S.tipBox}><AlertCircle size={20} style={{ flexShrink:0 }} />Tip: Supports batch uploading and 2000+ page documents.</div>}
+            {appState==='IDLE' && <div style={S.tipBox}><AlertCircle size={20} style={{ flexShrink:0 }} />Tip: Supports 3000+ pages. Scanned pages are OCR'd automatically.</div>}
             <button onClick={() => setDark(d=>!d)} style={S.darkBtn}>
               {dark ? <Sun size={16} /> : <Moon size={16} />}
               {dark ? 'Light' : 'Dark'}
