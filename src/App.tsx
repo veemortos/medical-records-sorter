@@ -156,16 +156,34 @@ async function runOcr(canvas) {
 async function extractTextFromPdf(pdf, fileName, onProgress, onOcr) {
   const BATCH = 8;
   const pages = [];
-  const OCR_THRESHOLD = 50;
+  const OCR_THRESHOLD = 200;
 
-  // Create one shared OCR worker for this document
+  // Wait for Tesseract to be available (it loads async)
   let ocrWorker = null;
   if (window.Tesseract) {
     try {
+      console.log('Initializing Tesseract worker...');
       ocrWorker = await window.Tesseract.createWorker('eng');
+      console.log('Tesseract worker ready');
     } catch(e) {
       console.warn('Tesseract worker failed to init:', e);
     }
+  } else {
+    // Try waiting up to 5 seconds for Tesseract to load
+    for (let t = 0; t < 10; t++) {
+      await new Promise(r => setTimeout(r, 500));
+      if (window.Tesseract) {
+        try {
+          console.log('Tesseract loaded late, initializing worker...');
+          ocrWorker = await window.Tesseract.createWorker('eng');
+          console.log('Tesseract worker ready (late init)');
+        } catch(e) {
+          console.warn('Tesseract late init failed:', e);
+        }
+        break;
+      }
+    }
+    if (!ocrWorker) console.warn('Tesseract not available after waiting');
   }
 
   for (let i = 1; i <= pdf.numPages; i++) {
@@ -177,11 +195,13 @@ async function extractTextFromPdf(pdf, fileName, onProgress, onOcr) {
       // If very little text extracted, try OCR
       if (text.trim().length < OCR_THRESHOLD && ocrWorker) {
         try {
+          console.log(`Running OCR on page ${i} (text: "${text.trim().slice(0,50)}")`);
           onOcr && onOcr(i);
           const canvas = await renderPageForOcr(page);
           if (canvas) {
             const result = await ocrWorker.recognize(canvas);
             const ocrText = result.data.text || '';
+            console.log(`OCR page ${i} result: "${ocrText.trim().slice(0,100)}"`);
             if (ocrText.trim().length > text.trim().length) {
               text = ocrText;
             }
