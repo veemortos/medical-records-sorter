@@ -142,12 +142,9 @@ async function renderPageToHash(page, pageNum) {
       gray.push(Math.round(0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2]));
     }
 
-    // Average hash: compare each pixel to mean
+    // Average hash: compare each pixel to mean, store as binary string
     const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
-    let hash = BigInt(0);
-    for (let i = 0; i < Math.min(gray.length, 64); i++) {
-      if (gray[i] >= mean) hash |= (BigInt(1) << BigInt(i));
-    }
+    const aHash = gray.slice(0, 64).map(v => v >= mean ? '1' : '0').join('');
 
     // Also compute a simple polynomial hash for secondary comparison
     let polyHash = 0;
@@ -157,18 +154,21 @@ async function renderPageToHash(page, pageNum) {
       polyHash |= 0;
     }
 
-    return { pageNum, width: canvas.width, height: canvas.height, aHash: hash.toString(), polyHash };
+    return { pageNum, width: canvas.width, height: canvas.height, aHash, polyHash };
   } catch (err) {
     return null;
   }
 }
 
 function hammingDistance(hashA, hashB) {
-  // Count differing bits between two hash strings (both are 64-bit represented as BigInt strings)
+  // Count differing bits using plain numbers (no BigInt)
   try {
-    let xor = BigInt(hashA) ^ BigInt(hashB);
+    const a = hashA.split('').map(Number);
+    const b = hashB.split('').map(Number);
     let dist = 0;
-    while (xor > 0n) { dist += Number(xor & 1n); xor >>= 1n; }
+    for (let i = 0; i < Math.min(a.length, b.length); i++) {
+      if (a[i] !== b[i]) dist++;
+    }
     return dist;
   } catch { return 64; }
 }
