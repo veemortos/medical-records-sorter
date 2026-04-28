@@ -322,27 +322,80 @@ export default function App() {
     setProgress({percent:55, message:'Structuring records for cross-analysis...'});
     await yieldToBrowser();
 
+    // Build page-level word sets for whole-page comparison
+    const makePageSets = (docs) => {
+      const pages = [];
+      docs.forEach(doc => {
+        doc.pages.forEach(p => {
+          const words = extractWords(p.text);
+          if (words.length > 5) {
+            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: new Set(words) });
+          }
+        });
+      });
+      return pages;
+    };
+
+    // Build sliding-window chunks (50-word stride for better boundary coverage)
     const makeChunks = (docs) => {
       const chunks = [];
       docs.forEach(doc => {
         doc.pages.forEach(p => {
-          const words = p.text.split(/\s+/);
-          for (let i=0; i<words.length; i+=100) {
-            const t = words.slice(i, i+100).join(' ');
-            if (t.length > 80) chunks.push({docId:doc.id, docName:doc.name, pageNum:p.pageNum, text:t});
+          const words = p.text.split(/\s+/).filter(w => w.length > 0);
+          const WINDOW = 100; const STRIDE = 50;
+          for (let i = 0; i < words.length; i += STRIDE) {
+            const t = words.slice(i, i + WINDOW).join(' ');
+            if (t.length > 60) chunks.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: t });
           }
         });
       });
       return chunks;
     };
+
+    const pageSetsA = makePageSets(parsedDocsA);
+    const pageSetsB = makePageSets(parsedDocsB);
     const allChunksA = makeChunks(parsedDocsA);
     const allChunksB = makeChunks(parsedDocsB);
 
-    setProgress({percent:60, message:'Building search index (Group B)...'});
+    setProgress({percent:58, message:'Running page-level duplicate detection...'});
     await yieldToBrowser();
 
+    const matches = [];
+    const PAGE_THRESHOLD = 0.25; // Lower threshold for whole-page comparison
+    const CHUNK_THRESHOLD = 0.30; // Lower threshold for chunk comparison
+    const seenPagePairs = new Set();
+    let lastYield = Date.now();
+
+    // PASS 1: Whole-page comparison — catches scanned/formatted duplicates
+    for (let i = 0; i < pageSetsA.length; i++) {
+      const pageA = pageSetsA[i];
+      for (let j = 0; j < pageSetsB.length; j++) {
+        const pageB = pageSetsB[j];
+        const score = calculateJaccard(pageA.wordSet, pageB.wordSet);
+        if (score >= PAGE_THRESHOLD) {
+          const pairKey = `${pageA.docId}-${pageA.pageNum}|${pageB.docId}-${pageB.pageNum}`;
+          if (!seenPagePairs.has(pairKey)) {
+            seenPagePairs.add(pairKey);
+            // Use a snippet from each page for display
+            const snippetA = pageA.text.slice(0, 300);
+            const snippetB = pageB.text.slice(0, 300);
+            matches.push({ type: 'text', docA: pageA.docId, docNameA: pageA.docName, pageA: pageA.pageNum, chunkA: snippetA, docB: pageB.docId, docNameB: pageB.docName, pageB: pageB.pageNum, chunkB: snippetB, score });
+          }
+        }
+      }
+      if (Date.now() - lastYield > 100) {
+        setProgress({ percent: 58 + Math.floor((i / pageSetsA.length) * 10), message: `Page-level scan... (${i}/${pageSetsA.length} pages)` });
+        await yieldToBrowser();
+        lastYield = Date.now();
+      }
+    }
+
+    setProgress({percent:68, message:'Building chunk search index (Group B)...'});
+    await yieldToBrowser();
+
+    // PASS 2: Sliding-window chunk comparison — catches partial overlaps
     const globalIndexB = new Map();
-    allChunksB.forEach((chunk,idx) => {
+    allChunksB.forEach((chunk, idx) => {
       const words = extractWords(chunk.text);
       chunk.wordSet = new Set(words);
       words.forEach(w => {
@@ -352,30 +405,33 @@ export default function App() {
     });
     allChunksA.forEach(chunk => { chunk.wordSet = new Set(extractWords(chunk.text)); });
 
-    const matches = []; const THRESHOLD = 0.45; let lastYield = Date.now();
-    for (let i=0; i<allChunksA.length; i++) {
+    for (let i = 0; i < allChunksA.length; i++) {
       const chunkA = allChunksA[i];
       const candidateScores = new Map();
       chunkA.wordSet.forEach(w => {
         const occ = globalIndexB.get(w);
-        if (occ) occ.forEach(idxB => { candidateScores.set(idxB,(candidateScores.get(idxB)||0)+1); });
+        if (occ) occ.forEach(idxB => { candidateScores.set(idxB, (candidateScores.get(idxB) || 0) + 1); });
       });
       const chunkMatches = [];
       for (let [idxB, sharedCount] of candidateScores.entries()) {
         if (sharedCount >= 3) {
           const score = calculateJaccard(chunkA.wordSet, allChunksB[idxB].wordSet);
-          if (score >= THRESHOLD) chunkMatches.push({idxB, score});
+          if (score >= CHUNK_THRESHOLD) chunkMatches.push({ idxB, score });
         }
       }
       if (chunkMatches.length > 0) {
-        chunkMatches.sort((a,b) => b.score-a.score);
+        chunkMatches.sort((a, b) => b.score - a.score);
         const best = chunkMatches[0];
         const chunkB = allChunksB[best.idxB];
-        matches.push({type:'text', docA:chunkA.docId, docNameA:chunkA.docName, pageA:chunkA.pageNum, chunkA:chunkA.text, docB:chunkB.docId, docNameB:chunkB.docName, pageB:chunkB.pageNum, chunkB:chunkB.text, score:best.score});
+        const pairKey = `${chunkA.docId}-${chunkA.pageNum}|${chunkB.docId}-${chunkB.pageNum}`;
+        // Only add chunk match if no page-level match already covers this page pair
+        if (!seenPagePairs.has(pairKey)) {
+          seenPagePairs.add(pairKey);
+          matches.push({ type: 'text', docA: chunkA.docId, docNameA: chunkA.docName, pageA: chunkA.pageNum, chunkA: chunkA.text, docB: chunkB.docId, docNameB: chunkB.docName, pageB: chunkB.pageNum, chunkB: chunkB.text, score: best.score });
+        }
       }
-      // Yield every 100ms instead of every 50ms
-      if (Date.now()-lastYield > 100) {
-        setProgress({percent:65+Math.floor((i/allChunksA.length)*20), message:`Cross-referencing text... (${i} / ${allChunksA.length} sections)`});
+      if (Date.now() - lastYield > 100) {
+        setProgress({ percent: 70 + Math.floor((i / allChunksA.length) * 18), message: `Cross-referencing chunks... (${i} / ${allChunksA.length})` });
         await yieldToBrowser();
         lastYield = Date.now();
       }
@@ -512,8 +568,8 @@ export default function App() {
   const renderIdleState = () => (
     <div>
       <div style={S.grid2}>
-        <UploadZone label="Received Medical Records" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
-        <UploadZone label="ERE Medical Records" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
+        <UploadZone label="Group A (Primary)" desc="Upload the main documents here. You can select multiple files at once." color="#3b82f6" files={filesA} setFiles={setFilesA} inputRef={fileInputARef} />
+        <UploadZone label="Group B (Target)" desc="Upload the documents to compare against. You can select multiple files at once." color="#6366f1" files={filesB} setFiles={setFilesB} inputRef={fileInputBRef} />
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
