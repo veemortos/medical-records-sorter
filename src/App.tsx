@@ -58,7 +58,7 @@ const makeStyles = (dark) => ({
   fullscreenBtn: { position: 'absolute', top: '12px', right: '12px', padding: '8px', background: dark ? 'rgba(15,23,42,0.9)' : 'rgba(255,255,255,0.9)', color: dark ? '#94a3b8' : '#334155', borderRadius: '8px', border: `1px solid ${dark ? '#334155' : '#e2e8f0'}`, cursor: 'pointer', display: 'flex', alignItems: 'center' },
 });
 
-const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day"]);
+const STOP_WORDS = new Set(["the","and","is","in","to","of","it","that","for","on","with","as","was","at","by","an","be","this","which","or","from","are","we","you","they","not","but","have","has","had","page","printed","date","signed","mrn","visit","dob","male","female","admit","milligram","orally","daily","times","per","day","zyks","christopher","allen","comanche","county","memorial","hospital","stokesberry","attending","location","acute"]);
 
 function repairOcrText(text) {
   // Rejoin characters that were split by OCR (e.g. "H el tc el" → "Heltcel")
@@ -571,12 +571,12 @@ export default function App() {
     const visualHashesA=[]; parsedDocsA.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesA.push({...h,docId:doc.id,docName:doc.name})));
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
-    const HAMMING_THRESHOLD = 3;
+    const HAMMING_THRESHOLD = 5;
     const isTextPoor = (pageNum, docs) => {
       const pg = docs.flatMap(d=>d.pages).find(p => p.pageNum === pageNum);
       if (!pg) return true;
       const words = extractWords(pg.text);
-      return words.length < 15;
+      return words.length < 25;
     };
 
     const textLightA = visualHashesA.filter(v => isTextPoor(v.pageNum, parsedDocsA));
