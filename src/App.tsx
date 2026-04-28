@@ -452,8 +452,8 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.25; // Lower threshold for whole-page comparison
-    const CHUNK_THRESHOLD = 0.30; // Lower threshold for chunk comparison
+    const PAGE_THRESHOLD = 0.15; // Very low — catches pages with even sparse shared text
+    const CHUNK_THRESHOLD = 0.20;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
@@ -537,39 +537,9 @@ export default function App() {
     const visualHashesA=[]; parsedDocsA.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesA.push({...h,docId:doc.id,docName:doc.name})));
     const visualHashesB=[]; parsedDocsB.forEach(doc=>(doc.pageVisualHashes||[]).forEach(h=>visualHashesB.push({...h,docId:doc.id,docName:doc.name})));
 
-    const HAMMING_THRESHOLD = 3; // Very tight: max 3 bits different out of 128 (97.6%+ similar)
-    // Only apply visual matching to pages with very little text (image-heavy pages)
-    const textLightPagesA = visualHashesA.filter(v => {
-      const pg = parsedDocsA.flatMap(d=>d.pages).find(p => p.pageNum === v.pageNum);
-      return !pg || pg.text.trim().length < 200; // less than 200 chars = image-heavy
-    });
-    const textLightPagesB = visualHashesB.filter(v => {
-      const pg = parsedDocsB.flatMap(d=>d.pages).find(p => p.pageNum === v.pageNum);
-      return !pg || pg.text.trim().length < 200;
-    });
-
-    for (let i=0; i<textLightPagesA.length; i++) {
-      const vA = textLightPagesA[i];
-      let bestDist = HAMMING_THRESHOLD + 1;
-      let bestMatch = null;
-      for (let j=0; j<textLightPagesB.length; j++) {
-        const vB = textLightPagesB[j];
-        const dist = hammingDistance(vA.aHash, vB.aHash);
-        if (dist <= HAMMING_THRESHOLD && dist < bestDist) {
-          bestDist = dist;
-          bestMatch = vB;
-        }
-      }
-      if (bestMatch) {
-        const pairKey = `${vA.docId}-${vA.pageNum}|${bestMatch.docId}-${bestMatch.pageNum}`;
-        if (!seenPagePairs.has(pairKey)) {
-          seenPagePairs.add(pairKey);
-          const score = 1 - (bestDist / 128);
-          matches.push({ type:'image', docA:vA.docId, docNameA:vA.docName, pageA:vA.pageNum, docB:bestMatch.docId, docNameB:bestMatch.docName, pageB:bestMatch.pageNum, score, details:`Visual similarity: ${Math.round(score*100)}%` });
-        }
-      }
-      if (i % 10 === 0) await yieldToBrowser();
-    }
+    const HAMMING_THRESHOLD = 3;
+    // Visual hashing disabled — too many false positives on medical records
+    // Text matching handles duplicates; image-only pages are noted separately
 
     // Embedded image object comparison (fallback for non-scanned PDFs)
     const allImagesA=[]; parsedDocsA.forEach(doc=>doc.imageHashes.forEach(img=>allImagesA.push({...img,docId:doc.id,docName:doc.name})));
