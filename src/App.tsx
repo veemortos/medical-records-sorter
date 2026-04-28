@@ -543,22 +543,14 @@ export default function App() {
     setProgress({percent:55, message:'Structuring records for cross-analysis...'});
     await yieldToBrowser();
 
-    // Build IDF map across all pages to identify distinctive words
-    const allPagesForIdf = [
-      ...parsedDocsA.flatMap(d=>d.pages),
-      ...parsedDocsB.flatMap(d=>d.pages)
-    ];
-    const docFreq = buildIdfMap(allPagesForIdf);
-    const totalPages = allPagesForIdf.length;
-
-    // Build page-level word sets using distinctive words only
+    // Build page-level word sets using simple word extraction (no IDF weighting for OCR pages)
     const makePageSets = (docs) => {
       const pages = [];
       docs.forEach(doc => {
         doc.pages.forEach(p => {
-          const distinctWords = getDistinctiveWords(p.text, docFreq, totalPages, 40);
-          if (distinctWords.size > 3) {
-            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: distinctWords });
+          const words = extractWords(p.text);
+          if (words.length > 2) {
+            pages.push({ docId: doc.id, docName: doc.name, pageNum: p.pageNum, text: p.text, wordSet: new Set(words) });
           }
         });
       });
@@ -590,8 +582,8 @@ export default function App() {
     await yieldToBrowser();
 
     const matches = [];
-    const PAGE_THRESHOLD = 0.25;
-    const CHUNK_THRESHOLD = 0.25;
+    const PAGE_THRESHOLD = 0.15;
+    const CHUNK_THRESHOLD = 0.15;
     const seenPagePairs = new Set();
     let lastYield = Date.now();
 
