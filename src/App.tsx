@@ -437,9 +437,11 @@ export default function App() {
     script.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js'; };
     document.head.appendChild(script);
 
-    // Load Tesseract.js for OCR on scanned pages
+    // Load Tesseract.js for OCR
     const tScript = document.createElement('script');
-    tScript.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    tScript.src = 'https://unpkg.com/tesseract.js@5.0.4/dist/tesseract.min.js';
+    tScript.onload = () => console.log('Tesseract loaded successfully');
+    tScript.onerror = (e) => console.error('Tesseract failed to load:', e);
     document.head.appendChild(tScript);
 
     return () => {
@@ -462,6 +464,7 @@ export default function App() {
   const runComparison = async () => {
     if (!filesA.length||!filesB.length) { alert("Please upload at least one document in both groups."); return; }
     if (!window.pdfjsLib) { alert("PDF library still loading. Please wait."); return; }
+    if (!window.Tesseract) { console.warn("Tesseract OCR not loaded — scanned pages will use visual matching only."); }
     setAppState('PROCESSING');
     let totalPagesProcessed = 0;
 
