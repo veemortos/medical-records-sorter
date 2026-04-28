@@ -438,24 +438,59 @@ export default function App() {
     ));
   };
 
+  const renderUploadZone = ({ label, desc, color, files, setFiles, ref }) => {
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDrop = (e) => {
+      e.preventDefault();
+      setIsDragging(false);
+      const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+      if (!droppedFiles.length) return;
+      setFiles(prev => [...prev, ...droppedFiles.map(f => ({ id: Math.random().toString(36).substr(2, 9), file: f, name: f.name, size: (f.size / (1024 * 1024)).toFixed(2) + ' MB' }))]);
+    };
+
+    const handleDragOver = (e) => { e.preventDefault(); setIsDragging(true); };
+    const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+
+    const dropZoneStyle = {
+      width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      padding: '32px 16px', border: `2px dashed ${isDragging ? color : (dark ? '#334155' : '#cbd5e1')}`,
+      borderRadius: '14px', color: isDragging ? color : (dark ? '#64748b' : '#94a3b8'),
+      background: isDragging ? (dark ? `rgba(59,130,246,0.08)` : `rgba(59,130,246,0.04)`) : 'transparent',
+      cursor: 'pointer', fontFamily: 'Verdana, sans-serif', gap: '8px',
+      transition: 'border-color 0.15s, background 0.15s, color 0.15s',
+    };
+
+    return (
+      <div key={label} style={S.card}>
+        <div style={S.cardTitle}><FileText size={20} color={color} />{label}</div>
+        <div style={S.cardDesc}>{desc}</div>
+        <input type="file" accept=".pdf" multiple ref={ref} onChange={e => handleFileUpload(e, setFiles)} style={{ display: 'none' }} />
+        <div
+          style={dropZoneStyle}
+          onClick={() => ref.current.click()}
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+        >
+          <UploadCloud size={32} color={isDragging ? color : undefined} />
+          <span style={{ fontWeight: 700, fontSize: '15px' }}>
+            {isDragging ? 'Drop PDF files here' : 'Drag & drop PDFs here'}
+          </span>
+          <span style={{ fontSize: '12px', opacity: 0.7 }}>or click to browse</span>
+        </div>
+        <div style={S.fileListWrap}>{renderFileList(files, setFiles)}</div>
+      </div>
+    );
+  };
+
   const renderIdleState = () => (
     <div>
       <div style={S.grid2}>
         {[
           { label: 'Group A (Primary)', desc: 'Upload the main documents here. You can select multiple files at once.', color: '#3b82f6', files: filesA, setFiles: setFilesA, ref: fileInputARef },
           { label: 'Group B (Target)', desc: 'Upload the documents to compare against. You can select multiple files at once.', color: '#6366f1', files: filesB, setFiles: setFilesB, ref: fileInputBRef },
-        ].map(({ label, desc, color, files, setFiles, ref }) => (
-          <div key={label} style={S.card}>
-            <div style={S.cardTitle}><FileText size={20} color={color} />{label}</div>
-            <div style={S.cardDesc}>{desc}</div>
-            <input type="file" accept=".pdf" multiple ref={ref} onChange={e => handleFileUpload(e, setFiles)} style={{ display: 'none' }} />
-            <button onClick={() => ref.current.click()} style={S.uploadBtn(color)}>
-              <UploadCloud size={28} />
-              <span style={S.uploadBtnText}>Add PDF Files</span>
-            </button>
-            <div style={S.fileListWrap}>{renderFileList(files, setFiles)}</div>
-          </div>
-        ))}
+        ].map(props => renderUploadZone(props))}
       </div>
       <div style={S.center}>
         <button onClick={runComparison} disabled={!filesA.length || !filesB.length} style={S.runBtn(!filesA.length || !filesB.length)}>
